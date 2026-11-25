@@ -1,65 +1,108 @@
 # FocusFlow — Build Your Better Day
 
-Minecraft-style daily routine dashboard. React + TypeScript + Tailwind (client), Node + Express + TypeScript (server).
-Personal project: built for you + one other person.
+**Live demo:** https://focus-flow-final-alpha.vercel.app/
 
-# Screenshots
+A daily-routine dashboard that looks and feels like a Minecraft world. Check off your goals and a pixel character acts them out, earn XP, level up, and watch a voxel village grow block by block. An AI coach reviews your plan and suggests a better one when your day goes off track.
 
-<p align="center">
-  <img src="./screenshots/FocusFlow.png" alt="FocusFlow dashboard" width="800">
-</p>
+Built with **React, TypeScript, Tailwind CSS** and a **Node/Express** backend.
 
-## Run it on your computer (development)
+![FocusFlow dashboard](screenshots/FocusFlow.png)
+
+## Features
+
+- **Daily plan with a living character.** Add a goal like "Drink 8 glasses of water" and the pixel character drinks water. Exercise, studying, coding, reading, planning, German practice, sleeping and meditating each have their own animation, picked from the words in the goal. Anything unrecognised gets a calm idle pose.
+- **XP, levels and a voxel village.** Tasks give 10–120 XP, habits +15, focus time 1 XP per minute, and a full day (3+ goals) +50. Every 250 XP builds a new piece of your isometric village (25 in total: cottage, well, wheat farm, watch tower and more). Every 1000 XP is a level-up.
+- **AI coach "Bit".** Reviews today's plan and answers in a short message with one-click suggestions (add a task, move one to tomorrow). Also has a chat, and writes an end-of-day "one good thing" note.
+- **Focus mode.** A block-style Pomodoro timer that survives page reloads, logs each session and awards XP.
+- **Habits, calendar, statistics.** Weekly habit tracker with streaks, a month calendar, and charts for tasks, XP and focus time over 7 or 30 days.
+- **Daily quote** in English or Persian, plus Persian/RTL text support.
+- **Accounts.** Username and password login. Each person has their own data and village.
+- **Sound effects.** Small 8-bit sounds generated with the Web Audio API (can be turned off).
+
+## Tech stack
+
+| Part     | Technology                                                                                            |
+| -------- | ----------------------------------------------------------------------------------------------------- |
+| Frontend | React 19, TypeScript, Vite 6, React Router 7, Tailwind CSS 4                                          |
+| Graphics | Hand-written SVG: the character, sprites and the isometric village are drawn in code, no image assets |
+| Backend  | Node.js, Express, TypeScript (run with `tsx`)                                                         |
+| Storage  | One JSON file per user (`server/data/users/`), or Upstash Redis when deployed serverless              |
+| Auth     | scrypt-hashed passwords, HMAC-signed tokens, login throttling                                         |
+| AI       | Anthropic API (optional) with a built-in rule-based fallback                                          |
+
+## Getting started
+
+Requires **Node.js 20 or newer**.
 
 ```bash
+# 1. install everything (root, client and server)
 npm run install:all
-cp server/.env.example server/.env     # then edit it (see below)
-npm run dev                            # app: http://localhost:5173  (API on :4000)
+
+# 2. create your settings file
+cp server/.env.example server/.env
+
+# 3a. development: API on :4000, app on http://localhost:5173
+npm run dev
+
+# 3b. or run as one process: build once, then start
+npm run build
+npm start          # http://localhost:4000 serves the API and the web app
 ```
 
-The first time you open it you create an account. **Only 2 accounts can ever be created** (`MAX_USERS`).
-The first account also inherits data from the old single-user version, if any.
+On first visit, create an account. By default only 2 accounts can be created (see `MAX_USERS`).
 
-## Run it as one process (what you host / share)
+### Configuration (`server/.env`)
 
-```bash
-npm run install:all
-npm run build          # builds the web app into client/dist
-npm start              # server on :4000 serves the API *and* the web app
+| Variable                            | Purpose                                                                                                        |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `MAX_USERS`                         | How many accounts may ever be created. Default `2`.                                                            |
+| `INVITE_CODE`                       | If set, registration requires this code. Recommended when the app is reachable from the internet.              |
+| `FOCUSFLOW_SECRET`                  | Secret used to sign login tokens. Generated into `server/data/secret.key` if empty.                            |
+| `DATA_DIR`                          | Where user data is stored. Point it at a persistent disk when hosting.                                         |
+| `ANTHROPIC_API_KEY`                 | Enables Claude-powered coaching. Optional.                                                                     |
+| `FOCUSFLOW_MODEL`                   | Model used for coaching. Default `claude-haiku-5-5`.                                                           |
+| `PORT`                              | Server port. Default `4000`.                                                                                   |
+| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | Use a hosted Redis instead of files (required on Vercel).                                                      |
+| `MAX_GUESTS`                        | Enables the one-click "Try the demo" button: max guest worlds per day (they expire after 7 days). Needs Redis. |
+
+## Live demo on Vercel
+
+Vercel serverless functions have no persistent disk, so on Vercel the app stores data in Upstash Redis (free tier). The backend and the frontend are **two Vercel projects** from the same repo:
+
+1. **Backend** — New Project → import the repo → _Root Directory_ `server`. Turn on _Include source files outside of the Root Directory_. Under _Storage_, create an Upstash Redis database and connect it. Add `MAX_GUESTS=20` (demo button) and optionally `MAX_USERS` / `INVITE_CODE`. Deploy and copy its URL.
+2. **Frontend** — New Project → same repo → _Root Directory_ `client`, framework Vite. Add `VITE_API_URL` = the backend URL (no trailing slash). Deploy.
+
+## How it works
+
+**Character animations.** The server detects a task's type from keywords in its title (English and Persian), and the client plays the matching CSS animation on the SVG character. The set of animations is hand-made and limited; the AI does not create new ones.
+
+**XP and village.** All XP, level and streak calculations happen on the server, so the client always shows the same numbers. The village is a list of 3D boxes projected to isometric SVG polygons and painter-sorted by depth. Each unlocked piece is added to the scene, and the next one appears as a ghost outline that fills in as XP grows.
+
+**AI coach.** `server/src/ai.ts` has two paths:
+
+- **Claude mode** (when `ANTHROPIC_API_KEY` is set): the server sends today's tasks, time of day, streak and weekly completion rate and asks for a JSON reply. Suggestions are validated before they reach the app (for example, a "move task" suggestion must reference a real task id).
+- **Offline mode** (default): a rule-based coach, written in code, that reacts to the time of day, overload (more than 10 planned hours), progress and missing movement. If a Claude request fails, the app falls back to this automatically.
+
+**Auth.** Passwords are hashed with scrypt and tokens are HMAC-signed with a 30-day expiry. Every `/api` route except login and register requires a token, and every request reads and writes only the logged-in user's file.
+
+## Project structure
+
+```
+client/src/components   Avatar (SVG character), Cube, Sprite, IsoScene (village), Layout, AuthGate
+client/src/pages        Dashboard, Tasks, Calendar, Habits, Focus, Companion, Stats, Village, Settings
+client/src/lib          date helpers, 8-bit sound, village pieces
+server/src              index.ts (routes), auth.ts, db.ts, store.ts (files/Redis), ai.ts, xp.ts, quotes.ts
+shared/types.ts         types shared by client and server
+docs/screenshots        images used in this README
 ```
 
-Open http://localhost:4000. Everything lives behind that one address.
+## Roadmap
 
-## Sharing with one other person
+- Password reset and account deletion
+- More character animations (walking, driving, cooking, cleaning)
+- Automated tests
+- Pluggable AI provider
 
-Pick one — they all run the same `npm start`:
+## Notes
 
-1. **Same Wi-Fi:** run it on your PC and give your friend `http://<your-PC-IP>:4000`. Works only while your PC is on.
-2. **A tunnel to your PC** (e.g. Cloudflare Tunnel or Tailscale): gives a link that works from anywhere, still only while your PC is on.
-3. **A cloud host** that can run Node and has a **persistent disk/volume**: set `DATA_DIR` to that disk.
-   Hosts whose disk is wiped on restart will delete everyone's progress — avoid those, or keep backups.
-
-If the app is reachable from the internet: set `INVITE_CODE` in `server/.env` (otherwise anyone who finds the link could take the 2nd account slot), and use HTTPS (hosts and tunnels give you that).
-
-## Your data
-
-Saved on the **server**, per account, in `server/data/users/<name>.json` (not in the browser). Clearing browser data or switching device
-only logs you out — log in again and your tasks, XP and village are back.
-**Back up `server/data/`** (just copy the folder). Passwords are stored hashed (scrypt), never in plain text.
-
-## AI coach
-
-Works in two modes (see `server/src/ai.ts`):
-
-- **Offline coach (default):** rules written in code. No internet, key or cost.
-- **Claude:** set `ANTHROPIC_API_KEY` in `server/.env`. Note: the Claude API is only available in countries on Anthropic's supported list — check https://www.anthropic.com/supported-countries before trying.
-
-## Structure
-
-```
-client/src/components   Cube, Avatar (SVG character), Sprite, IsoScene (voxel village), Layout, AuthGate
-client/src/pages        one file per sidebar section
-client/src/lib/village.ts   the 25 buildable pieces
-server/src              index.ts (routes), auth.ts, db.ts, ai.ts, xp.ts, quotes.ts
-shared/types.ts         types used by both sides
-```
+Built with assistance from Claude (Anthropic).
