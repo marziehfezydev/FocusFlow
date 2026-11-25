@@ -8,40 +8,55 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Response } from 'express';
-import { loadUser, save, uid, adoptLegacy, type DB } from './db';
-import * as auth from './auth';
-import { computeProfile, detectType, giveXp, syncDayBonus, taskXp } from './xp';
-import { quoteFor } from './quotes';
-import * as ai from './ai';
+import { loadUser, save, flush, uid, adoptLegacy, type DB } from './db.js';
+import { kv } from './store.js';
+import * as auth from './auth.js';
+import { computeProfile, detectType, giveXp, syncDayBonus, taskXp } from './xp.js';
+import { quoteFor } from './quotes.js';
+import * as ai from './ai.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '100kb' }));
 
 /* ───────────── accounts ───────────── */
-app.get('/api/auth/status', (_req, res) => res.json(auth.status()));
+// With a hosted store the function may be frozen right after answering, so wait for pending writes first.
+app.use((_req, res, next) => {
+  if (!kv) return next();
+  const json = res.json.bind(res);
+  res.json = (body) => { flush().then(() => json(body)); return res; };
+  next();
+});
 
-app.post('/api/auth/register', (req, res) => {
+app.get('/api/auth/status', async (_req, res) => res.json(await auth.status()));
+
+app.post('/api/auth/register', async (req, res) => {
   const { username, password, invite } = req.body ?? {};
-  const r = auth.register(username, password, invite);
+  const r = await auth.register(username, password, invite);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
   // The first account inherits data from the old single-user version, if there is any.
   if (r.first) adoptLegacy(r.username);
-  const db = loadUser(r.username);
-  save(db);
-  res.json({ token: auth.makeToken(r.username), username: r.username });
+  save(await loadUser(r.username));
+  res.json({ token: await auth.makeToken(r.username), username: r.username });
 });
 
-app.post('/api/auth/login', (req, res) => {
-  const r = auth.login(req.body?.username, req.body?.password);
+app.post('/api/auth/login', async (req, res) => {
+  const r = await auth.login(req.body?.username, req.body?.password);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
-  res.json({ token: auth.makeToken(r.username), username: r.username });
+  res.json({ token: await auth.makeToken(r.username), username: r.username });
+});
+
+app.post('/api/auth/guest', async (_req, res) => {
+  const r = await auth.guest();
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  save(await loadUser(r.username));
+  res.json({ token: await auth.makeToken(r.username), username: r.username });
 });
 
 // everything below this line needs a logged-in user
 app.use('/api', auth.requireAuth);
 
-const userDb = (res: Response): DB => loadUser(res.locals.user as string);
+const userDb = (res: Response): Promise<DB> => loadUser(res.locals.user as string);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const isDate = (s: unknown): s is string => typeof s === 'string' && DATE_RE.test(s);
 const todayParam = (v: unknown) => (isDate(v) ? v : new Date().toISOString().slice(0, 10));
@@ -86,8 +101,8 @@ function dayContext(db: DB, date: string, hour: number): ai.DayContext {
 }
 
 /* ───────────── bootstrap ───────────── */
-app.get('/api/bootstrap', (req, res) => {
-  const db = userDb(res);
+app.get('/api/bootstrap', async (req, res) => {
+  const db = await userDb(res);
   const today = todayParam(req.query.today);
   if (db.tasks.length === 0 && !db.settings.onboarded) {
     const seed: [string, number][] = [
@@ -117,8 +132,8 @@ app.get('/api/bootstrap', (req, res) => {
 });
 
 /* ───────────── tasks ───────────── */
-app.post('/api/tasks', (req, res) => {
-  const db = userDb(res);
+app.post('/api/tasks', async (req, res) => {
+  const db = await userDb(res);
   const { title, date, minutes, type } = req.body ?? {};
   if (typeof title !== 'string' || !title.trim() || !isDate(date)) return res.status(400).json({ error: 'title and date required' });
   const mins = Math.min(480, Math.max(5, Math.round(Number(minutes) || 20)));
@@ -138,8 +153,8 @@ app.post('/api/tasks', (req, res) => {
   res.json({ task, ...result(db, date, 0, false) });
 });
 
-app.patch('/api/tasks/:id', (req, res) => {
-  const db = userDb(res);
+app.patch('/api/tasks/:id', async (req, res) => {
+  const db = await userDb(res);
   const task = db.tasks.find((t) => t.id === req.params.id);
   if (!task) return res.status(404).json({ error: 'not found' });
   const today = todayParam(req.query.today ?? task.date);
@@ -179,8 +194,8 @@ app.patch('/api/tasks/:id', (req, res) => {
   res.json({ task, ...result(db, today, xpDelta, leveledUp) });
 });
 
-app.delete('/api/tasks/:id', (req, res) => {
-  const db = userDb(res);
+app.delete('/api/tasks/:id', async (req, res) => {
+  const db = await userDb(res);
   const idx = db.tasks.findIndex((t) => t.id === req.params.id);
   if (idx < 0) return res.status(404).json({ error: 'not found' });
   const [task] = db.tasks.splice(idx, 1);
@@ -195,8 +210,8 @@ app.delete('/api/tasks/:id', (req, res) => {
 });
 
 /* ───────────── habits ───────────── */
-app.post('/api/habits', (req, res) => {
-  const db = userDb(res);
+app.post('/api/habits', async (req, res) => {
+  const db = await userDb(res);
   const { title, type } = req.body ?? {};
   if (typeof title !== 'string' || !title.trim()) return res.status(400).json({ error: 'title required' });
   const habit: Habit = {
@@ -209,8 +224,8 @@ app.post('/api/habits', (req, res) => {
   res.json({ habit });
 });
 
-app.post('/api/habits/:id/toggle', (req, res) => {
-  const db = userDb(res);
+app.post('/api/habits/:id/toggle', async (req, res) => {
+  const db = await userDb(res);
   const habit = db.habits.find((h) => h.id === req.params.id);
   const date = req.body?.date;
   if (!habit || !isDate(date)) return res.status(400).json({ error: 'bad request' });
@@ -221,8 +236,8 @@ app.post('/api/habits/:id/toggle', (req, res) => {
   res.json({ habit, ...result(db, date, on ? habit.xp : -habit.xp, r.leveledUp) });
 });
 
-app.delete('/api/habits/:id', (req, res) => {
-  const db = userDb(res);
+app.delete('/api/habits/:id', async (req, res) => {
+  const db = await userDb(res);
   const idx = db.habits.findIndex((h) => h.id === req.params.id);
   if (idx < 0) return res.status(404).json({ error: 'not found' });
   db.habits.splice(idx, 1);
@@ -231,8 +246,8 @@ app.delete('/api/habits/:id', (req, res) => {
 });
 
 /* ───────────── focus ───────────── */
-app.post('/api/focus', (req, res) => {
-  const db = userDb(res);
+app.post('/api/focus', async (req, res) => {
+  const db = await userDb(res);
   const { minutes, date, label } = req.body ?? {};
   const mins = Math.round(Number(minutes));
   if (!isDate(date) || !(mins >= 1 && mins <= 240)) return res.status(400).json({ error: 'bad request' });
@@ -247,8 +262,8 @@ app.post('/api/focus', (req, res) => {
 });
 
 /* ───────────── settings ───────────── */
-app.patch('/api/settings', (req, res) => {
-  const db = userDb(res);
+app.patch('/api/settings', async (req, res) => {
+  const db = await userDb(res);
   const b = req.body ?? {};
   const s = db.settings;
   if (typeof b.name === 'string' && b.name.trim()) s.name = b.name.trim().slice(0, 30);
@@ -261,8 +276,8 @@ app.patch('/api/settings', (req, res) => {
   res.json({ settings: s, quote: quoteFor(todayParam(req.query.today), s.language) });
 });
 
-app.post('/api/reset', (req, res) => {
-  const db = userDb(res);
+app.post('/api/reset', async (req, res) => {
+  const db = await userDb(res);
   db.tasks = []; db.focus = []; db.events = []; db.chat = []; db.totalXp = 0; db.bonusDates = []; db.cache = {};
   db.habits.forEach((h) => (h.log = {}));
   db.settings.onboarded = true; // don't re-seed sample tasks
@@ -272,7 +287,7 @@ app.post('/api/reset', (req, res) => {
 
 /* ───────────── AI ───────────── */
 app.post('/api/ai/coach', async (req, res) => {
-  const db = userDb(res);
+  const db = await userDb(res);
   const date = todayParam(req.body?.date);
   const hour = Math.min(23, Math.max(0, Math.round(Number(req.body?.hour) || 12)));
   const ctx = dayContext(db, date, hour);
@@ -281,45 +296,47 @@ app.post('/api/ai/coach', async (req, res) => {
 });
 
 app.post('/api/ai/evening', async (req, res) => {
-  const db = userDb(res);
+  const db = await userDb(res);
   const date = todayParam(req.body?.date);
   const hour = Math.min(23, Math.max(0, Math.round(Number(req.body?.hour) || 21)));
   const ctx = dayContext(db, date, hour);
   const key = `evening:${date}:${db.settings.language}:${ctx.tasks.filter((t) => t.done).length}`;
   if (db.cache[key]) return res.json(db.cache[key]);
   const out = db.settings.aiEnabled ? await ai.evening(ctx) : ai.offlineEvening(ctx);
-  db.cache[key] = out;
-  save(db);
+  const cur = await userDb(res); // reload: the data may have changed while the AI was thinking
+  cur.cache[key] = out;
+  save(cur);
   res.json(out);
 });
 
 app.post('/api/ai/chat', async (req, res) => {
-  const db = userDb(res);
+  const db = await userDb(res);
   const text = req.body?.message;
   if (typeof text !== 'string' || !text.trim()) return res.status(400).json({ error: 'message required' });
   const date = todayParam(req.body?.date);
   const hour = Math.min(23, Math.max(0, Math.round(Number(req.body?.hour) || 12)));
   const now = new Date().toISOString();
-  db.chat.push({ id: uid(), role: 'user', text: text.trim().slice(0, 1000), ts: now });
-  const history = db.chat.slice(-12).map((m) => ({ role: m.role, text: m.text }));
+  const userMsg = { id: uid(), role: 'user' as const, text: text.trim().slice(0, 1000), ts: now };
+  const history = [...db.chat, userMsg].slice(-12).map((m) => ({ role: m.role, text: m.text }));
   const reply = await ai.chat(dayContext(db, date, hour), history);
   const msg = { id: uid(), role: 'assistant' as const, text: reply.text, ts: new Date().toISOString() };
-  db.chat.push(msg);
-  if (db.chat.length > 200) db.chat.splice(0, db.chat.length - 200);
-  save(db);
+  const cur = await userDb(res); // reload before writing (see evening)
+  cur.chat.push(userMsg, msg);
+  if (cur.chat.length > 200) cur.chat.splice(0, cur.chat.length - 200);
+  save(cur);
   res.json({ message: msg, source: reply.source });
 });
 
-app.delete('/api/ai/chat', (req, res) => {
-  const db = userDb(res);
+app.delete('/api/ai/chat', async (req, res) => {
+  const db = await userDb(res);
   db.chat = [];
   save(db);
   res.json({ ok: true });
 });
 
 /* ───────────── stats ───────────── */
-app.get('/api/stats', (req, res) => {
-  const db = userDb(res);
+app.get('/api/stats', async (req, res) => {
+  const db = await userDb(res);
   const today = todayParam(req.query.today);
   const range = Math.min(90, Math.max(7, Number(req.query.days) || 7));
   const days = [];
@@ -362,7 +379,12 @@ if (fs.existsSync(path.join(CLIENT_DIST, 'index.html'))) {
   app.get(/^\/(?!api).*/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
 }
 
-const PORT = Number(process.env.PORT) || 4000;
-app.listen(PORT, () => {
-  console.log(`FocusFlow API on http://localhost:${PORT}  ·  AI mode: ${ai.aiMode}`);
-});
+// On Vercel the platform runs the exported app itself; everywhere else we listen on a port.
+if (!process.env.VERCEL) {
+  const PORT = Number(process.env.PORT) || 4000;
+  app.listen(PORT, () => {
+    console.log(`FocusFlow API on http://localhost:${PORT}  ·  AI mode: ${ai.aiMode}  ·  storage: ${kv ? 'hosted' : 'files'}`);
+  });
+}
+
+export default app;

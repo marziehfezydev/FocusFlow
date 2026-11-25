@@ -50,6 +50,20 @@ function AuthScreen({ onDone }: { onDone: () => void }) {
     }
   };
 
+  const tryDemo = async () => {
+    setError('');
+    setBusy(true);
+    try {
+      const r = await authApi.guest();
+      setSession(r.token, r.username);
+      onDone();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="grid min-h-full place-items-center p-4">
       <div className="mc-panel anim-pop w-full max-w-md px-7 py-7">
@@ -91,6 +105,12 @@ function AuthScreen({ onDone }: { onDone: () => void }) {
                 {busy ? '…' : mode === 'login' ? 'Enter my world ▸' : 'Create my world ▸'}
               </button>
             </form>
+            {status?.guestsEnabled && (
+              <div className="mt-3 border-t-2 border-dashed border-[#d9c9a8] pt-3 text-center">
+                <button className="mc-btn !bg-[#8fd1a0] !py-2 !text-sm" type="button" disabled={busy} onClick={tryDemo}>Try the demo (no sign-up) ▸</button>
+                <p className="mt-1 text-xs font-bold text-ink-soft">A temporary world that is deleted after 7 days.</p>
+              </div>
+            )}
             {status && !status.registrationOpen && (
               <p className="mt-3 text-center text-xs font-bold text-ink-soft">This world is private — all account slots are taken.</p>
             )}

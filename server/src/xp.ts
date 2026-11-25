@@ -1,5 +1,5 @@
 import type { Profile, TaskType } from '../../shared/types';
-import { DB, uid } from './db';
+import { DB, uid } from './db.js';
 
 export const XP_PER_LEVEL = 1000;
 
