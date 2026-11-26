@@ -101,6 +101,8 @@ function TodayPlan() {
   const done = todays.filter((t) => t.done).length;
   const next = todays.find((t) => !t.done);
   const allDone = todays.length > 0 && done === todays.length;
+  // a tap fires "mouse enter" but never "mouse leave", so only preview on hover with a real pointer
+  const canHover = window.matchMedia('(hover: hover)').matches;
 
   let action: AvatarAction = 'idle';
   let caption = 'Add a goal to begin';
@@ -122,13 +124,13 @@ function TodayPlan() {
         <div>
           {todays.length === 0 && <div className="py-6 text-center font-bold text-ink-soft">No goals yet — add your first one below ⬇</div>}
           <div className="scroll-thin max-h-[19rem] overflow-y-auto pr-1">
-            {todays.map((t) => <TaskRow key={t.id} task={t} onHover={setHover} />)}
+            {todays.map((t) => <TaskRow key={t.id} task={t} onHover={canHover ? setHover : undefined} />)}
           </div>
           <AddTaskForm date={today} compact />
         </div>
-        <div className="relative hidden flex-col items-center justify-end md:flex">
-          <div className="absolute inset-x-2 bottom-8 top-6 rounded-lg bg-gradient-to-t from-[#cdeccb] to-transparent" />
-          <Avatar key={action} action={action} size={170} className="relative drop-shadow-[0_6px_0_rgba(120,170,90,.35)]" />
+        <div className="relative order-first flex flex-col items-center justify-end md:order-none">
+          <div className="absolute inset-x-2 bottom-14 top-6 rounded-lg md:bottom-8 bg-gradient-to-t from-[#cdeccb] to-transparent" />
+          <Avatar key={action} action={action} size={170} className="relative h-auto w-[7.5rem] drop-shadow-[0_6px_0_rgba(120,170,90,.35)] md:w-[170px]" />
           <div className="relative -mt-1 flex h-7 w-52 items-end justify-center">
             <div className="absolute bottom-0 h-3 w-44 rounded-sm bg-gradient-to-b from-[#8fdc8f] to-[#6cbf6c] shadow-[0_4px_0_#8a5a38]" />
           </div>
