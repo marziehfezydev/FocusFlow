@@ -72,8 +72,8 @@ function StatCards() {
   return (
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       {cards.map((c) => (
-        <button key={c.label} onClick={() => nav(c.to)} className="mc-panel group flex items-center gap-3 px-4 py-3 text-left transition hover:-translate-y-0.5">
-          <Sprite name={c.icon} size={48} className="transition group-hover:scale-110" />
+        <button key={c.label} onClick={() => nav(c.to)} className="mc-panel group flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 text-left transition hover:-translate-y-0.5">
+          <Sprite name={c.icon} size={48} className="hidden transition group-hover:scale-110 min-[400px]:block" />
           <div className="min-w-0">
             <div className="font-pixel text-lg font-bold leading-none">{c.label}</div>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-2">

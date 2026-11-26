@@ -87,7 +87,7 @@ function SearchBox() {
     return () => document.removeEventListener('mousedown', h);
   }, []);
   return (
-    <div ref={ref} className="relative w-full max-w-[18rem]">
+    <div ref={ref} className="relative min-w-0 flex-1 sm:max-w-[18rem]">
       <div className="mc-inset flex items-center gap-2 px-3 py-1.5">
         <Sprite name="search" size={20} />
         <input
@@ -98,7 +98,7 @@ function SearchBox() {
             if (e.key === 'Enter' && q.trim()) { nav(`/tasks?q=${encodeURIComponent(q.trim())}`); setOpen(false); }
           }}
           placeholder="Search tasks..."
-          className="w-full bg-transparent font-bold outline-none placeholder:text-ink-soft/70"
+          className="w-full min-w-0 bg-transparent font-bold outline-none placeholder:text-ink-soft/70"
         />
       </div>
       {open && q.trim() && (
@@ -150,7 +150,7 @@ function Bell() {
         )}
       </button>
       {open && (
-        <div className="mc-panel absolute right-0 top-[115%] z-30 w-72 p-3">
+        <div className="mc-panel fixed inset-x-3 top-20 z-30 p-3 sm:absolute sm:inset-x-auto sm:right-0 sm:top-[115%] sm:w-72">
           <div className="mb-2 font-pixel text-lg font-bold">Recent XP</div>
           <div className="scroll-thin max-h-72 overflow-y-auto">
             {events.length === 0 && <div className="text-sm font-bold text-ink-soft">Finish a task to earn your first XP!</div>}
@@ -280,12 +280,14 @@ export function Shell() {
       )}
       <main className="relative z-10 flex min-w-0 flex-1 flex-col lg:pl-5">
         <div className="flex items-center gap-3 pb-3 pt-1">
-          <button className="mc-btn soft sm lg:hidden" onClick={() => setDrawer(true)} aria-label="Open menu">☰</button>
+          <div className="lg:hidden">
+            <button className="mc-btn soft sm" onClick={() => setDrawer(true)} aria-label="Open menu">☰</button>
+          </div>
           <h1 className="hidden font-pixel text-3xl font-bold sm:block">{title}</h1>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2">
             <SearchBox />
             <Bell />
-            <NavLink to="/settings" className="grid h-12 w-12 place-items-center overflow-hidden rounded-md border-[3px] border-peach-d bg-peach shadow-[0_3px_0_#d9a98b]" aria-label="Profile">
+            <NavLink to="/settings" className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-md border-[3px] border-peach-d bg-peach shadow-[0_3px_0_#d9a98b]" aria-label="Profile">
               <div className="-mt-3"><Avatar action="idle" size={56} /></div>
             </NavLink>
           </div>

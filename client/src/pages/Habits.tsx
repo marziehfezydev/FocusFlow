@@ -43,31 +43,31 @@ export default function HabitsPage() {
         {habits.length === 0 && <Empty emoji="🌱" title="No habits yet" hint="Add one below — tiny daily seeds grow big." />}
         <div className="grid gap-2">
           {habits.length > 0 && (
-            <div className="grid grid-cols-[1fr_repeat(7,2.4rem)_4.5rem] items-end gap-1 px-2 text-center text-[11px] font-extrabold uppercase text-ink-soft">
-              <span />
+            <div className="grid grid-cols-7 sm:grid-cols-[1fr_repeat(7,2.4rem)_4.5rem] items-end gap-1 px-2 text-center text-[11px] font-extrabold uppercase text-ink-soft">
+              <span className="hidden sm:block" />
               {week.map((d) => <span key={d} className={d === today ? 'text-grass-d' : ''}>{weekday(d)}</span>)}
-              <span>Streak</span>
+              <span className="hidden sm:block">Streak</span>
             </div>
           )}
           {habits.map((h) => (
-            <div key={h.id} className="group grid grid-cols-[1fr_repeat(7,2.4rem)_4.5rem] items-center gap-1 rounded-md bg-white/55 px-2 py-1.5">
-              <div className="flex min-w-0 items-center gap-2">
+            <div key={h.id} className="group grid grid-cols-7 sm:grid-cols-[1fr_repeat(7,2.4rem)_4.5rem] items-center gap-1 rounded-md bg-white/55 px-2 py-1.5">
+              <div className="col-span-5 flex min-w-0 items-center gap-2 sm:col-span-1">
                 <span className="text-xl">{TASK_EMOJI[h.type]}</span>
                 <span className="truncate font-bold" dir="auto">{h.title}</span>
-                <button onClick={() => void removeHabit(h.id)} className="ml-1 text-ink-soft opacity-0 transition hover:text-[#c8503a] group-hover:opacity-100" aria-label={`Delete ${h.title}`}>✕</button>
+                <button onClick={() => void removeHabit(h.id)} className="touch-visible ml-1 text-ink-soft opacity-0 transition hover:text-[#c8503a] group-hover:opacity-100" aria-label={`Delete ${h.title}`}>✕</button>
               </div>
               {week.map((d) => (
-                <div key={d} className={`grid place-items-center ${d > today ? 'pointer-events-none opacity-30' : ''}`}>
+                <div key={d} className={`order-1 grid place-items-center sm:order-none ${d > today ? 'pointer-events-none opacity-30' : ''}`}>
                   <BlockCheck checked={!!h.log[d]} onChange={() => void toggleHabit(h.id, d)} label={`${h.title} on ${d}`} />
                 </div>
               ))}
-              <div className="text-center font-pixel text-lg font-bold">🔥 {streakOf(h, today)}</div>
+              <div className="col-span-2 text-right font-pixel text-lg font-bold sm:col-span-1 sm:text-center">🔥 {streakOf(h, today)}</div>
             </div>
           ))}
         </div>
         <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (title.trim()) { void addHabit(title.trim()); setTitle(''); } }}>
-          <input className="mc-input" dir="auto" placeholder="New habit… e.g. “Stretch 5 minutes”" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} />
-          <button className="mc-btn" type="submit" disabled={!title.trim()}>+ Add</button>
+          <input className="mc-input min-w-0" dir="auto" placeholder="New habit… e.g. “Stretch 5 minutes”" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} />
+          <button className="mc-btn shrink-0" type="submit" disabled={!title.trim()}>+ Add</button>
         </form>
       </Panel>
     </div>

@@ -35,9 +35,16 @@ body {
 .font-pixel { font-family: var(--font-pixel); letter-spacing: .02em; }
 [dir='rtl'], [dir='auto'] { unicode-bidi: plaintext; }
 
+/* ───────── Mobile layout ───────── */
+/* let grid children shrink instead of stretching the page wider than the screen */
+@layer base { .grid > * { min-width: 0; } }
+/* in a layer so that `absolute` / `fixed` utilities can override it (dropdowns) */
+@layer components { .mc-panel { position: relative; } }
+/* touch screens have no hover, so keep delete buttons visible */
+@media (hover: none) { .touch-visible { opacity: 1; } }
+
 /* ───────── Minecraft-ish block surfaces ───────── */
 .mc-panel {
-  position: relative;
   background: var(--color-cream);
   border: 3px solid #ecc9b1;
   border-radius: 6px;

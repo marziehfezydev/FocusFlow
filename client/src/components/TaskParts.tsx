@@ -23,14 +23,14 @@ export function TaskRow({
 
   return (
     <div
-      className="group flex items-center gap-3 border-b border-peach-d/50 py-2 last:border-0"
+      className="group flex items-center gap-2 border-b sm:gap-3 border-peach-d/50 py-2 last:border-0"
       onMouseEnter={() => onHover?.(task)}
       onMouseLeave={() => onHover?.(null)}
     >
       <BlockCheck checked={task.done} onChange={() => void toggleTask(task.id)} label={`Complete ${task.title}`} />
-      <span className="text-lg" aria-hidden>{TASK_EMOJI[task.type]}</span>
+      <span className="hidden text-lg min-[400px]:inline" aria-hidden>{TASK_EMOJI[task.type]}</span>
       {editing ? (
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <input
             autoFocus className="mc-input !py-1" value={title} maxLength={100}
             onChange={(e) => setTitle(e.target.value)}
@@ -44,7 +44,7 @@ export function TaskRow({
         </div>
       ) : (
         <button
-          className={`min-w-0 flex-1 truncate text-left font-bold ${task.done ? 'text-ink-soft line-through decoration-2' : ''}`}
+          className={`min-w-0 flex-1 break-words text-left font-bold sm:truncate ${task.done ? 'text-ink-soft line-through decoration-2' : ''}`}
           dir={rtlAttr(task.title)}
           onDoubleClick={() => editable && setEditing(true)}
           onClick={() => editable && setEditing(true)}
@@ -58,7 +58,7 @@ export function TaskRow({
       <Pill tone={task.done ? 'green' : 'gold'}>{task.done ? '✓' : ''} {task.xp} XP</Pill>
       <button
         onClick={() => void removeTask(task.id)}
-        className="grid h-7 w-7 place-items-center rounded font-extrabold text-ink-soft opacity-0 transition hover:bg-[#fde0d8] hover:text-[#c8503a] focus:opacity-100 group-hover:opacity-100"
+        className="grid h-7 w-7 shrink-0 place-items-center rounded font-extrabold touch-visible text-ink-soft opacity-0 transition hover:bg-[#fde0d8] hover:text-[#c8503a] focus:opacity-100 group-hover:opacity-100"
         aria-label={`Delete ${task.title}`}
       >
         ✕

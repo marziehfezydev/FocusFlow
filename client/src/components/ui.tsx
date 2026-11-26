@@ -9,7 +9,7 @@ export function Panel({
   return (
     <section className={`mc-panel anim-slide ${className}`}>
       {(title || action) && (
-        <header className="flex items-center justify-between gap-3 px-5 pt-4">
+        <header className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
           <h2 className="flex items-center gap-2.5 font-pixel text-[1.15rem] font-bold text-ink">
             {icon && <Sprite name={icon} size={28} />}
             {title}
@@ -38,7 +38,7 @@ export function Tabs<T extends string>({
   value, onChange, options,
 }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }) {
   return (
-    <div className="inline-flex gap-1 rounded-md bg-peach/70 p-1 ring-2 ring-peach-d/60">
+    <div className="inline-flex flex-wrap gap-1 rounded-md bg-peach/70 p-1 ring-2 ring-peach-d/60">
       {options.map((o) => (
         <button
           key={o.value}

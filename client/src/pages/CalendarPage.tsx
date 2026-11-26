@@ -33,7 +33,7 @@ export default function CalendarPage() {
       <Panel
         title="Calendar" icon="calendar"
         action={
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <button className="mc-btn soft sm" onClick={() => shift(-1)} aria-label="Previous month">‹</button>
             <div className="mc-btn soft sm !cursor-default min-w-[9.5rem]">{fmtMonth(ym.y, ym.m)}</div>
             <button className="mc-btn soft sm" onClick={() => shift(1)} aria-label="Next month">›</button>
